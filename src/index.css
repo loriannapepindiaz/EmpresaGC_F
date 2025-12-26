@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+:root {
+  background-color: #e5e7eb; /* Esto pone el fondo gris claro fuera del celular */
+}
