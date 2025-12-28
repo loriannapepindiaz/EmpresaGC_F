@@ -5,6 +5,7 @@ import axios from 'axios';
 const CapturaFoto = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const API_URL = import.meta.env.VITE_API_URL;
   
   const [hasPhoto, setHasPhoto] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -45,29 +46,30 @@ const CapturaFoto = () => {
       return;
     }
 
-    setCargando(true);
+   setCargando(true);
     try {
-      // Actualizamos en BD que ya se tomó la foto
-      await axios.put(`http://localhost:3000/api/actualizar-foto/${id}`, {
+     
+      await axios.put(`${API_URL}/api/actualizar-foto/${id}`, {
         nombreFoto: `foto_evidencia_${id}.jpg`
       });
 
       // Pasamos a Evaluación COPIANDO todo el state anterior + lo nuevo
       navigate('/evaluacion', { 
         state: { 
-          ...location.state,  // ← Esto es clave: copia TODO (incluye id, area, representante, etc.)
-          id,                 // ID real
-          fotoArea: previewUrl // La imagen preview para mostrar en la siguiente pantalla
+          ...location.state,
+          id,
+          fotoArea: previewUrl 
         } 
       });
     } catch (err) {
       console.error("Error al vincular foto:", err);
+      // Este es el alert que te estaba saliendo:
       alert("No se pudo guardar la referencia de la foto en la base de datos.");
     } finally {
       setCargando(false);
     }
   };
-
+  
   return (
     <div className="min-h-screen w-full bg-[#f6f8f7] flex items-center justify-center p-4 font-sans overflow-hidden">
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&display=swap" rel="stylesheet" />

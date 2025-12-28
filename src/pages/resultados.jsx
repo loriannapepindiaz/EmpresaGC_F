@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 const Resultados = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const API_URL = import.meta.env.VITE_API_URL;
 
   if (!location.state) {
     return (
@@ -28,7 +29,7 @@ const Resultados = () => {
 
   const tieneDatos = !!location.state;
   const porcentajeReal = location.state?.porcentaje ?? 0;
-  const detallesReal = location.state?.detalles ?? {};
+  const detallesReal = location.state?.detalles ?? {}; // ← Aquí llegan los puntajes reales desde Evaluacion
   const hallazgosReal = location.state?.hallazgos ?? [];
   const fotoArea = location.state?.fotoArea || null;
   const idAuditoria = location.state?.id || location.state?.id_auditoria;
@@ -51,9 +52,7 @@ const Resultados = () => {
   const dashOffset = dashArray - (dashArray * puntuacionAnimada) / 100;
 
   const puntosMaximos = 25;
-  const puntosObtenidos = tieneDatos
-    ? Object.values(detallesReal).reduce((sum, item) => sum + Math.round(item?.score ?? 0), 0)
-    : 0;
+  const puntosObtenidos = Object.values(detallesReal).reduce((sum, item) => sum + (Number(item?.score) || 0), 0);
   const puntosRestados = tieneDatos ? (puntosMaximos - puntosObtenidos) : 0;
   const puntosRestadosTexto = puntosRestados > 0 ? `-${puntosRestados} ptos` : "0 ptos";
 
@@ -78,7 +77,7 @@ const Resultados = () => {
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0);
-    doc.text(`Auditoría ID: #${idAuditoria || 'SINID'}`, 14, startY); // ← Sin ceros a la izquierda
+    doc.text(`Auditoría ID: #${idAuditoria || 'SINID'}`, 14, startY);
     doc.text(`Fecha: ${fecha}`, 14, startY + 8);
     doc.text(`Puntaje Final: ${Math.round(porcentajeReal)}%`, 14, startY + 16);
     doc.text(`Área: ${area}`, 14, startY + 24);
@@ -87,9 +86,11 @@ const Resultados = () => {
 
     const tableData = etapas.map(etapa => {
       const info = detallesReal[etapa.id] || {};
-      const score = info.score !== undefined ? Math.round(info.score) : 0;
+      const scoreRaw = info.score; // ← Puntaje real (puede ser null, 0, 1...5)
+      const score = scoreRaw != null ? Math.round(Number(scoreRaw)) : null;
+      const textoPuntaje = score != null ? `${score}/5` : 'N/D'; // N/D si no hay dato
       const comentario = info.comment || "Sin observaciones";
-      return [etapa.n, `${score}/5`, comentario];
+      return [etapa.n, textoPuntaje, comentario];
     });
 
     autoTable(doc, {
@@ -185,13 +186,11 @@ const Resultados = () => {
     }
   };
 
-  // Exportar Excel con hoja "registros" = TODAS las auditorías ordenadas de más antigua a más nueva
   const exportarExcelConHistorial = async () => {
     try {
       const wb = XLSX.utils.book_new();
       const idString = idAuditoria || "SINID";
 
-      // HOJA 1: RESUMEN (auditoría actual)
       const resumenData = [
         ["auditoria_id", "fecha", "area", "representante", "auditor", "puntaje_final", "puntos_restados"],
         [idString, fecha, area, representante, auditor, `${Math.round(porcentajeReal)}%`, puntosRestadosTexto]
@@ -200,15 +199,13 @@ const Resultados = () => {
       wsResumen['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, wsResumen, "resumen");
 
-      // HOJA 2: "registros" - TODAS las auditorías de la BD (ordenadas de la 1 a la última)
       let registrosData = [["ID", "Fecha", "Área", "Representante", "Auditor", "Porcentaje", "Puntos Restados"]];
 
-      try {
-        const res = await fetch('http://localhost:3000/api/auditorias-5s');
+     try {
+        const res = await fetch(`${API_URL}/api/auditorias-5s`);
         if (!res.ok) throw new Error('Error en API');
         const data = await res.json();
 
-        // Ordenar de menor ID a mayor (más antigua a más nueva)
         const sortedData = data.sort((a, b) => a.id_auditoria - b.id_auditoria);
 
         sortedData.forEach((row) => {
@@ -217,17 +214,14 @@ const Resultados = () => {
             new Date(row.fecha_inspeccion).toLocaleDateString('es-ES'),
             row.id_area || 'No especificada',
             row.nombre_representante || 'Sin representante',
-            row.id_auditor || 'Alex Ruiz', // ← Campo de auditor de tu BD
+            row.id_auditor || 'Alex Ruiz',
             `${Math.round(Number(row.porcentaje_final || 0))}%`,
             Number(row.puntos_restados || 0) > 0 ? `-${Number(row.puntos_restados)} ptos` : "0 ptos"
           ]);
         });
-
-        console.log(`Se cargaron ${sortedData.length} auditorías desde la BD (ordenadas de 1 a última)`);
       } catch (apiError) {
-        console.warn('API no disponible, usando solo localStorage:', apiError);
+        console.warn('API no disponible, usando localStorage:', apiError);
         const historialLocal = JSON.parse(localStorage.getItem('auditorias_5S') || '[]');
-        // Ordenar localStorage también de menor a mayor ID
         historialLocal.sort((a, b) => (a.id_auditoria || a.id) - (b.id_auditoria || b.id));
         historialLocal.forEach((auditoria) => {
           registrosData.push([
@@ -246,7 +240,6 @@ const Resultados = () => {
       wsRegistros['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }];
       XLSX.utils.book_append_sheet(wb, wsRegistros, "registros");
 
-      // HOJA 3: Detalle actual
       const auditoriaActualData = [
         ["auditoria_id", "fecha", "area", "puntaje_final"],
         [idString, fecha, area, `${Math.round(porcentajeReal)}%`]
@@ -304,10 +297,11 @@ const Resultados = () => {
                   strokeLinecap="round" strokeWidth="8"
                 />
               </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-6xl font-bold text-gray-900 tracking-tight">
-                  {puntuacionAnimada}<span className="text-3xl align-top">%</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-6xl font-extrabold text-gray-900 tracking-tight leading-none">
+                  {Math.round(puntuacionAnimada)}
                 </span>
+                <span className="text-3xl font-bold text-gray-600 mt-1">%</span>
               </div>
             </div>
             <p className="text-sm font-medium text-gray-400 mt-2 uppercase tracking-widest">Puntaje Total</p>
@@ -363,9 +357,12 @@ const Resultados = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-4 pt-6 tracking-tight">Resultados por Etapa</h3>
             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
               {etapas.map((etapa, index) => {
-                const score = tieneDatos ? Math.round(detallesReal[etapa.id]?.score ?? 0) : 0;
-                const perc = (score / 5) * 100;
-                const barColor = !tieneDatos ? 'bg-gray-200' : score >= 4 ? 'bg-[#2bee79]' : score === 3 ? 'bg-yellow-500' : 'bg-red-500';
+                const info = detallesReal[etapa.id] || {};
+                const scoreRaw = info.score;
+                const score = scoreRaw != null ? Math.round(Number(scoreRaw)) : null;
+                const textoPuntaje = score != null ? `${score}/5` : 'N/D';
+                const perc = score != null ? (score / 5) * 100 : 0;
+                const barColor = score == null ? 'bg-gray-200' : score >= 4 ? 'bg-[#2bee79]' : score === 3 ? 'bg-yellow-500' : 'bg-red-500';
                 return (
                   <div key={etapa.id} className={`flex items-center justify-between p-4 border-b border-gray-100 ${index === etapas.length - 1 ? 'border-none pb-6' : ''}`}>
                     <div className="flex items-center gap-3 flex-1">
@@ -379,7 +376,7 @@ const Resultados = () => {
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">{score}/5</span>
+                    <span className="text-sm font-semibold text-gray-900">{textoPuntaje}</span>
                   </div>
                 );
               })}

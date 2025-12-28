@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 const Historial = () => {
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL;
   const [expandedCard, setExpandedCard] = useState(null);
   const [auditorias, setAuditorias] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,59 +15,60 @@ const Historial = () => {
 
   useEffect(() => {
     const cargarAuditorias = async () => {
-      try {
+ try {
         setLoading(true);
-        const res = await fetch('http://localhost:3000/api/auditorias-5s');
+        // ✅ Fragmento corregido usando la variable dinámica
+        const res = await fetch(`${API_URL}/api/auditorias-5s`);
         const data = await res.json();
 
-        const formateadas = data
-          .map((row) => {
-            const scoreNum = Number(row.porcentaje_final || 0);
-            const puntosRestados = Number(row.puntos_restados || 0);
+    const formateadas = data.map((row) => {
+      const scoreNum = Number(row.porcentaje_final || 0);
+      const puntosRestados = Number(row.puntos_restados || 0);
 
-            const detallesDummy = {
-              1: { score: 5 },
-              2: { score: 4 },
-              3: { score: 4 },
-              4: { score: 5 },
-              5: { score: 4 },
-            };
+      // Creamos el mapa de detalles
+      const detallesMap = {};
+      
+      // ✅ IMPORTANTE: Usar el nombre exacto que envía el Backend (detalles_5s)
+      const listaDetalles = row.detalles_5s || row.detalle_5s || row.detalle_evaluacion_5s;
 
-            return {
-              id: row.id_auditoria,
-              id_auditoria: row.id_auditoria,
-              id_area: row.id_area,
-              area: row.area?.nombre_galera || `Área ${row.id_area}`,
-              representante: row.nombre_representante || 'Sin representante',
-              auditor: row.auditor?.nombre_completo || `Auditor ${row.id_auditor}`,
-              fecha: new Date(row.fecha_inspeccion).toLocaleDateString(
-                'es-ES',
-                { day: 'numeric', month: 'short', year: 'numeric' }
-              ),
-              fechaCompleta: row.fecha_inspeccion,
-              dia: new Date(row.fecha_inspeccion).getDate(),
-              mes: new Date(row.fecha_inspeccion).getMonth() + 1,
-              year: new Date(row.fecha_inspeccion).getFullYear(),
-              scoreNum,
-              score: `${Math.round(scoreNum)}%`,
-              fotoArea: row.foto_evidencia_general || null,
-              puntosRestadosTexto: puntosRestados > 0 ? `-${puntosRestados} ptos` : '0 ptos',
-              detalles: detallesDummy,
-            };
-          })
-          .sort((a, b) => new Date(b.fechaCompleta).getTime() - new Date(a.fechaCompleta).getTime());
+      if (Array.isArray(listaDetalles)) {
+        listaDetalles.forEach(det => {
+          detallesMap[det.seccion_id] = {
+            score: det.puntuacion,
+            comment: det.comentario
+          };
+        });
+      }
 
-        setAuditorias(formateadas);
+      return {
+        id: row.id_auditoria,
+        area: row.area?.nombre_galera || `Área ${row.id_area}`,
+        representante: row.nombre_representante || 'Sin representante',
+        auditor: row.auditor?.nombre_completo || `Auditor ${row.id_auditor}`,
+        fecha: new Date(row.fecha_inspeccion).toLocaleDateString('es-ES', { 
+          day: 'numeric', month: 'short', year: 'numeric' 
+        }),
+        fechaCompleta: row.fecha_inspeccion,
+        dia: new Date(row.fecha_inspeccion).getDate(),
+        mes: new Date(row.fecha_inspeccion).getMonth() + 1,
+        year: new Date(row.fecha_inspeccion).getFullYear(),
+        scoreNum,
+        score: `${Math.round(scoreNum)}%`,
+        fotoArea: row.foto_evidencia_general || null,
+        puntosRestadosTexto: puntosRestados > 0 ? `-${puntosRestados} ptos` : '0 ptos',
+        detalles: detallesMap // Este objeto ahora sí tendrá datos
+      };
+    }).sort((a, b) => new Date(b.fechaCompleta).getTime() - new Date(a.fechaCompleta).getTime());
 
-        // Generar años disponibles: año actual + años con datos
+    setAuditorias(formateadas);
+
+        // Años disponibles
         const añoActual = new Date().getFullYear();
         const añosConDatos = [...new Set(formateadas.map(a => a.year))].sort((a, b) => b - a);
         const añosUnicos = [...new Set([añoActual, ...añosConDatos])].sort((a, b) => b - a);
-        
         setAñosDisponibles(añosUnicos);
       } catch (err) {
-        console.error('Error cargando auditorías:', err);
-        // Si hay error, al menos mostrar el año actual
+        console.error('Error cargando historial:', err);
         setAñosDisponibles([new Date().getFullYear()]);
       } finally {
         setLoading(false);
@@ -117,7 +119,6 @@ const Historial = () => {
 
   return (
     <div className="min-h-screen w-full bg-[#f6f8f7] flex items-center justify-center p-4 font-sans">
-      {/* FIXED: Google Fonts con FILL correcto */}
       <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0&display=swap"
         rel="stylesheet"
@@ -156,7 +157,7 @@ const Historial = () => {
             </div>
           </div>
 
-          {/* Filtros EXPANDIDOS */}
+          {/* Filtros */}
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -319,14 +320,20 @@ const Historial = () => {
                                 { id: 3, nombre: 'Limpiar (Seiso)' },
                                 { id: 4, nombre: 'Estandarizar (Seiketsu)' },
                                 { id: 5, nombre: 'Disciplina (Shitsuke)' },
-                              ].map((etapa) => (
-                                <div key={etapa.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#f6f8f7]">
-                                  <span className="text-xs font-medium text-gray-700">{etapa.nombre}</span>
-                                  <span className="text-sm font-bold text-emerald-600">
-                                    {audit.detalles?.[etapa.id]?.score ? `${Math.round(audit.detalles[etapa.id].score)}/5` : '—/5'}
-                                  </span>
-                                </div>
-                              ))}
+                              ].map((etapa) => {
+                                const detalle = audit.detalles?.[etapa.id];
+                                const puntaje = detalle?.score != null ? Math.round(Number(detalle.score)) : null;
+                                const texto = puntaje != null ? `${puntaje}/5` : 'N/D';
+
+                                return (
+                                  <div key={etapa.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-[#f6f8f7]">
+                                    <span className="text-xs font-medium text-gray-700">{etapa.nombre}</span>
+                                    <span className="text-sm font-bold text-emerald-600">
+                                      {texto}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>

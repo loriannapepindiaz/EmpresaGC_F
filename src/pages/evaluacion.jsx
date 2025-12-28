@@ -5,6 +5,7 @@ import axios from 'axios';
 const Evaluacion = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const API_URL = import.meta.env.VITE_API_URL;
 
   // ID creado en pantalla2 (o fallback a id)
   const id = location.state?.id_auditoria || location.state?.id;
@@ -87,31 +88,26 @@ const Evaluacion = () => {
     }
 
     try {
-      // Guardar detalles + actualizar maestro en BD
-      await axios.post(
-        'http://localhost:3000/api/evaluacion/guardar',
-        {
-          id_auditoria: id,
-          detalles: data,
-          porcentaje_final: porcentajeFinal,
-        }
-      );
+      // ✅ Fragmento corregido usando backticks y la variable de entorno
+      await axios.post(`${API_URL}/api/evaluacion/guardar`, {
+        id_auditoria: id,
+        detalles: data,
+        porcentaje_final: porcentajeFinal,
+      });
 
-      // Pasar a Resultados con toda la info necesaria
+      // Pasar a Resultados
       navigate('/resultados', {
         state: {
           ...location.state,
           id,
           porcentaje: porcentajeFinal,
           detalles: data,
-          hallazgos: [], // aquí luego puedes pasar hallazgos reales
+          hallazgos: [], 
         },
       });
     } catch (err) {
       console.error('Error al guardar evaluación:', err);
-      alert(
-        'No se pudo guardar la evaluación en la base de datos.'
-      );
+      alert('No se pudo guardar la evaluación en la base de datos.');
     }
   };
 

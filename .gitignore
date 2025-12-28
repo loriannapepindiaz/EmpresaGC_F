@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# ... resto de archivos arriba
+.vscode/*
+!.vscode/extensions.json
+
+.env

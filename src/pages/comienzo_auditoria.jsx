@@ -47,7 +47,7 @@ const ComienzoAuditoria = () => {
       // PASAR AL SIGUIENTE PASO CON EL ID REAL
       navigate('/captura-foto', { 
         state: { 
-          id: resultado.id_auditoria,         // ← Cambiado a "id" para consistencia
+          id: resultado.id_auditoria,         
           area,
           auditor: nombreAuditor,
           representante,
