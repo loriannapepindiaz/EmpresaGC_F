@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 const CapturaFoto = () => {
   const navigate = useNavigate();
@@ -11,9 +13,10 @@ const CapturaFoto = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [fechaAuto, setFechaAuto] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // <--- Estado para el Skeleton
 
   // Recuperamos los datos que vienen de la pantalla anterior
-  const id = location.state?.id; // ← Cambiado a "id" para consistencia
+  const id = location.state?.id;
   const areaRecibida = location.state?.area || "Área General";
   const auditor = location.state?.auditor || "Auditor";
 
@@ -24,12 +27,14 @@ const CapturaFoto = () => {
     const anio = hoy.getFullYear();
     setFechaAuto(`${dia}/${mes}/${anio}`);
 
-    // Debug: verifica qué llega
-    console.log("State recibido en CapturaFoto:", location.state);
+    // Simulamos un tiempo de carga breve para el efecto visual
+    const timer = setTimeout(() => setIsLoading(false), 800);
 
     if (!id) {
       console.error("No se recibió el ID de la auditoría");
     }
+
+    return () => clearTimeout(timer);
   }, [id, location.state]);
 
   const handleFileChange = (e) => {
@@ -46,14 +51,12 @@ const CapturaFoto = () => {
       return;
     }
 
-   setCargando(true);
+    setCargando(true);
     try {
-     
       await axios.put(`${API_URL}/api/actualizar-foto/${id}`, {
         nombreFoto: `foto_evidencia_${id}.jpg`
       });
 
-      // Pasamos a Evaluación COPIANDO todo el state anterior + lo nuevo
       navigate('/evaluacion', { 
         state: { 
           ...location.state,
@@ -63,7 +66,6 @@ const CapturaFoto = () => {
       });
     } catch (err) {
       console.error("Error al vincular foto:", err);
-      // Este es el alert que te estaba saliendo:
       alert("No se pudo guardar la referencia de la foto en la base de datos.");
     } finally {
       setCargando(false);
@@ -101,8 +103,13 @@ const CapturaFoto = () => {
             </div>
           </div>
 
+          {/* Área de Captura con Skeleton */}
           <label className="group relative flex flex-col items-center justify-center w-full aspect-[4/3] rounded-[2.5rem] border-2 border-dashed border-gray-200 hover:border-[#25d466] bg-gray-50 transition-all cursor-pointer overflow-hidden shadow-inner">
-            {hasPhoto && previewUrl ? (
+            {isLoading ? (
+              <div className="absolute inset-0">
+                <Skeleton height="100%" borderRadius={40} />
+              </div>
+            ) : hasPhoto && previewUrl ? (
               <div className="absolute inset-0 w-full h-full">
                 <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -133,39 +140,43 @@ const CapturaFoto = () => {
 
           <div className="mt-8 p-5 bg-gray-50 rounded-[1.5rem] border border-gray-100 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 w-full">
                 <span className="material-symbols-outlined text-gray-400 text-xl">location_on</span>
-                <div>
+                <div className="w-full">
                   <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Área Seleccionada</p>
-                  <p className="text-sm font-bold text-gray-800">{areaRecibida}</p>
+                  {isLoading ? <Skeleton width="50%" /> : <p className="text-sm font-bold text-gray-800">{areaRecibida}</p>}
                 </div>
               </div>
             </div>
             
             <div className="h-[1px] bg-gray-200 w-full"></div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full">
               <span className="material-symbols-outlined text-gray-400 text-xl">person</span>
-              <div>
+              <div className="w-full">
                 <p className="text-[10px] uppercase font-bold text-gray-400 tracking-widest">Auditor Asignado</p>
-                <p className="text-sm font-bold text-gray-800">{auditor}</p>
+                {isLoading ? <Skeleton width="40%" /> : <p className="text-sm font-bold text-gray-800">{auditor}</p>}
               </div>
             </div>
           </div>
         </main>
 
         <div className="p-6 bg-white border-t border-gray-100">
-          <button 
-            onClick={irAEvaluacion}
-            disabled={!hasPhoto || cargando}
-            className={`w-full h-14 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg
-              ${hasPhoto && !cargando
-                ? 'bg-[#25d466] text-white shadow-[#25d466]/30' 
-                : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'}`}
-          >
-            <span>{cargando ? "Guardando..." : "Comenzar Evaluación"}</span>
-            {!cargando && <span className="material-symbols-outlined text-xl">arrow_forward</span>}
-          </button>
+          {isLoading ? (
+            <Skeleton height={56} borderRadius={16} />
+          ) : (
+            <button 
+              onClick={irAEvaluacion}
+              disabled={!hasPhoto || cargando}
+              className={`w-full h-14 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-3 active:scale-95 shadow-lg
+                ${hasPhoto && !cargando
+                  ? 'bg-[#25d466] text-white shadow-[#25d466]/30' 
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'}`}
+            >
+              <span>{cargando ? "Guardando..." : "Comenzar Evaluación"}</span>
+              {!cargando && <span className="material-symbols-outlined text-xl">arrow_forward</span>}
+            </button>
+          )}
         </div>
       </div>
     </div>
