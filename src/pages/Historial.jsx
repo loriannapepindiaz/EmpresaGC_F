@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Skeleton from 'react-loading-skeleton';  // ← NUEVO
+import 'react-loading-skeleton/dist/skeleton.css';  // ← NUEVO
 
 const Historial = () => {
   const navigate = useNavigate();
@@ -7,6 +9,7 @@ const Historial = () => {
   const [expandedCard, setExpandedCard] = useState(null);
   const [auditorias, setAuditorias] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSkeleton, setIsSkeleton] = useState(true);  // ← NUEVO: Skeleton inicial
   const [filtroArea, setFiltroArea] = useState('');
   const [filtroYear, setFiltroYear] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
@@ -15,54 +18,49 @@ const Historial = () => {
 
   useEffect(() => {
     const cargarAuditorias = async () => {
- try {
+      try {
         setLoading(true);
-        // ✅ Fragmento corregido usando la variable dinámica
         const res = await fetch(`${API_URL}/api/auditorias-5s`);
         const data = await res.json();
 
-    const formateadas = data.map((row) => {
-      const scoreNum = Number(row.porcentaje_final || 0);
-      const puntosRestados = Number(row.puntos_restados || 0);
+        const formateadas = data.map((row) => {
+          const scoreNum = Number(row.porcentaje_final || 0);
+          const puntosRestados = Number(row.puntos_restados || 0);
 
-      // Creamos el mapa de detalles
-      const detallesMap = {};
-      
-      // ✅ IMPORTANTE: Usar el nombre exacto que envía el Backend (detalles_5s)
-      const listaDetalles = row.detalles_5s || row.detalle_5s || row.detalle_evaluacion_5s;
+          const detallesMap = {};
+          const listaDetalles = row.detalles_5s || row.detalle_5s || row.detalle_evaluacion_5s;
 
-      if (Array.isArray(listaDetalles)) {
-        listaDetalles.forEach(det => {
-          detallesMap[det.seccion_id] = {
-            score: det.puntuacion,
-            comment: det.comentario
+          if (Array.isArray(listaDetalles)) {
+            listaDetalles.forEach(det => {
+              detallesMap[det.seccion_id] = {
+                score: det.puntuacion,
+                comment: det.comentario
+              };
+            });
+          }
+
+          return {
+            id: row.id_auditoria,
+            area: row.area?.nombre_galera || `Área ${row.id_area}`,
+            representante: row.nombre_representante || 'Sin representante',
+            auditor: row.auditor?.nombre_completo || `Auditor ${row.id_auditor}`,
+            fecha: new Date(row.fecha_inspeccion).toLocaleDateString('es-ES', { 
+              day: 'numeric', month: 'short', year: 'numeric' 
+            }),
+            fechaCompleta: row.fecha_inspeccion,
+            dia: new Date(row.fecha_inspeccion).getDate(),
+            mes: new Date(row.fecha_inspeccion).getMonth() + 1,
+            year: new Date(row.fecha_inspeccion).getFullYear(),
+            scoreNum,
+            score: `${Math.round(scoreNum)}%`,
+            fotoArea: row.foto_evidencia_general || null,
+            puntosRestadosTexto: puntosRestados > 0 ? `-${puntosRestados} ptos` : '0 ptos',
+            detalles: detallesMap
           };
-        });
-      }
+        }).sort((a, b) => new Date(b.fechaCompleta).getTime() - new Date(a.fechaCompleta).getTime());
 
-      return {
-        id: row.id_auditoria,
-        area: row.area?.nombre_galera || `Área ${row.id_area}`,
-        representante: row.nombre_representante || 'Sin representante',
-        auditor: row.auditor?.nombre_completo || `Auditor ${row.id_auditor}`,
-        fecha: new Date(row.fecha_inspeccion).toLocaleDateString('es-ES', { 
-          day: 'numeric', month: 'short', year: 'numeric' 
-        }),
-        fechaCompleta: row.fecha_inspeccion,
-        dia: new Date(row.fecha_inspeccion).getDate(),
-        mes: new Date(row.fecha_inspeccion).getMonth() + 1,
-        year: new Date(row.fecha_inspeccion).getFullYear(),
-        scoreNum,
-        score: `${Math.round(scoreNum)}%`,
-        fotoArea: row.foto_evidencia_general || null,
-        puntosRestadosTexto: puntosRestados > 0 ? `-${puntosRestados} ptos` : '0 ptos',
-        detalles: detallesMap // Este objeto ahora sí tendrá datos
-      };
-    }).sort((a, b) => new Date(b.fechaCompleta).getTime() - new Date(a.fechaCompleta).getTime());
+        setAuditorias(formateadas);
 
-    setAuditorias(formateadas);
-
-        // Años disponibles
         const añoActual = new Date().getFullYear();
         const añosConDatos = [...new Set(formateadas.map(a => a.year))].sort((a, b) => b - a);
         const añosUnicos = [...new Set([añoActual, ...añosConDatos])].sort((a, b) => b - a);
@@ -72,11 +70,86 @@ const Historial = () => {
         setAñosDisponibles([new Date().getFullYear()]);
       } finally {
         setLoading(false);
+        setTimeout(() => setIsSkeleton(false), 1000);  // ← Skeleton 1s
       }
     };
 
     cargarAuditorias();
   }, []);
+
+  // ← NUEVO: Skeleton completo
+  if (isSkeleton) {
+    return (
+      <div className="min-h-screen w-full bg-[#f6f8f7] flex items-center justify-center p-4 font-sans">
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&display=swap" rel="stylesheet" />
+        <div className="relative w-full max-w-[420px] h-[90vh] flex flex-col bg-white rounded-[2.5rem] overflow-hidden border border-gray-100 shadow-xl">
+          
+          {/* Header */}
+          <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white">
+            <Skeleton circle height={40} width={40} />
+            <Skeleton height={24} width={100} />
+            <div className="w-10" />
+          </header>
+
+          <main className="flex-1 overflow-y-auto px-6 pt-4 pb-32 space-y-5">
+            {/* Stats */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 rounded-2xl">
+                <Skeleton height={12} width="60%" />
+                <Skeleton height={36} width="80%" />
+              </div>
+              <div className="p-4 rounded-2xl">
+                <Skeleton height={12} width="70%" />
+                <Skeleton height={36} width="60%" />
+              </div>
+            </div>
+
+            {/* Filtros */}
+            <div className="p-4 rounded-2xl space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton height={36} />
+                <Skeleton height={36} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton height={36} />
+                <Skeleton height={36} />
+              </div>
+            </div>
+
+            {/* Cards de auditorías */}
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <div className="flex items-center gap-3 p-2">
+                    <Skeleton circle height={40} width={40} />
+                    <div className="flex-1">
+                      <Skeleton height={14} width="70%" />
+                      <Skeleton height={10} width="40%" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-100 rounded-2xl overflow-hidden">
+                    <Skeleton height={192} />
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Skeleton height={10} width="60%" />
+                          <Skeleton height={14} width="90%" />
+                        </div>
+                        <Skeleton height={14} width="50%" />
+                      </div>
+                      <Skeleton height={40} />
+                      <Skeleton height={60} count={2} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   const auditoriasFiltradas = auditorias.filter((auditoria) => {
     const matchesArea = auditoria.area.toLowerCase().includes(filtroArea.toLowerCase());
@@ -104,6 +177,7 @@ const Historial = () => {
     promedio: auditorias.reduce((sum, a) => sum + (a.scoreNum || 0), 0) / (auditorias.length || 1),
   };
 
+  // ← Spinner simple (mantiene tu original)
   if (loading) {
     return (
       <div className="min-h-screen w-full bg-[#f6f8f7] flex items-center justify-center p-4 font-sans">
@@ -117,6 +191,7 @@ const Historial = () => {
     );
   }
 
+  // ← TODO EL RESTO DE TU CÓDIGO ORIGINAL (sin cambios)
   return (
     <div className="min-h-screen w-full bg-[#f6f8f7] flex items-center justify-center p-4 font-sans">
       <link
