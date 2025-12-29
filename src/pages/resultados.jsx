@@ -234,75 +234,76 @@ const Resultados = () => {
     }
   };
 
-  const exportarExcelConHistorial = async () => {
+ const exportarExcelConHistorial = async () => {
+  try {
+    const wb = XLSX.utils.book_new();
+    const idString = idAuditoria || "SINID";
+
+    const resumenData = [
+      ["auditoria_id", "fecha", "area", "representante", "auditor", "puntaje_final", "puntos_restados"],
+      [idString, fecha, area, representante, auditor, `${Math.round(porcentajeReal)}%`, puntosRestadosTexto]
+    ];
+    const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
+    wsResumen['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, wsResumen, "resumen");
+
+    let registrosData = [["ID", "Fecha", "Área", "Representante", "Auditor", "Porcentaje", "Puntos Restados"]];
+
     try {
-      const wb = XLSX.utils.book_new();
-      const idString = idAuditoria || "SINID";
+      const res = await fetch(`${API_URL}/api/auditorias-5s`);
+      if (!res.ok) throw new Error('Error en API');
+      const data = await res.json();
 
-      const resumenData = [
-        ["auditoria_id", "fecha", "area", "representante", "auditor", "puntaje_final", "puntos_restados"],
-        [idString, fecha, area, representante, auditor, `${Math.round(porcentajeReal)}%`, puntosRestadosTexto]
-      ];
-      const wsResumen = XLSX.utils.aoa_to_sheet(resumenData);
-      wsResumen['!cols'] = [{ wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, wsResumen, "resumen");
+      const sortedData = data.sort((a, b) => a.id_auditoria - b.id_auditoria);
 
-      let registrosData = [["ID", "Fecha", "Área", "Representante", "Auditor", "Porcentaje", "Puntos Restados"]];
-
-       try {
-        const res = await fetch(`${API_URL}/api/auditorias-5s`);
-        if (!res.ok) throw new Error('Error en API');
-        const data = await res.json();
-
-        const sortedData = data.sort((a, b) => a.id_auditoria - b.id_auditoria);
-
-        sortedData.forEach((row) => {
-          registrosData.push([
-            row.id_auditoria || "SINID",
-            new Date(row.fecha_inspeccion).toLocaleDateString('es-ES'),
-            row.id_area || 'No especificada',
-            row.nombre_representante || 'Sin representante',
-            row.id_auditor || 'Alex Ruiz',
-            `${Math.round(Number(row.porcentaje_final || 0))}%`,
-            Number(row.puntos_restados || 0) > 0 ? `-${Number(row.puntos_restados)} ptos` : "0 ptos"
-          ]);
-        });
-      } catch (apiError) {
-        console.warn('API no disponible, usando localStorage:', apiError);
-        const historialLocal = JSON.parse(localStorage.getItem('auditorias_5S') || '[]');
-        historialLocal.sort((a, b) => (a.id_auditoria || a.id) - (b.id_auditoria || b.id));
-        historialLocal.forEach((auditoria) => {
-          registrosData.push([
-            auditoria.id_auditoria || auditoria.id || "SINID",
-            auditoria.fecha || '',
-            auditoria.area || 'No especificada',
-            auditoria.representante || 'No especificado',
-            auditoria.auditor || 'Alex Ruiz',
-            auditoria.score || `${Math.round(auditoria.scoreNum || 0)}%`,
-            auditoria.puntosRestados || '0 ptos'
-          ]);
-        });
-      }
-
-      const wsRegistros = XLSX.utils.aoa_to_sheet(registrosData);
-      wsRegistros['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, wsRegistros, "registros");
-
-      const auditoriaActualData = [
-        ["auditoria_id", "fecha", "area", "puntaje_final"],
-        [idString, fecha, area, `${Math.round(porcentajeReal)}%`]
-      ];
-      const wsActual = XLSX.utils.aoa_to_sheet(auditoriaActualData);
-      wsActual['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 15 }];
-      XLSX.utils.book_append_sheet(wb, wsActual, "auditoria_actual");
-
-      XLSX.writeFile(wb, `Auditoria_5S_${idString}.xlsx`);
-      setMostrarModalExportar(false);
-    } catch (error) {
-      console.error("❌ Error al exportar Excel:", error);
-      alert("Error al exportar Excel. Intenta de nuevo.");
+      sortedData.forEach((row) => {
+        registrosData.push([
+          row.id_auditoria || "SINID",
+          new Date(row.fecha_inspeccion).toLocaleDateString('es-ES'),
+          row.id_area || 'No especificada',
+          row.nombre_representante || 'Sin representante',
+          row.id_auditor || 'Alex Ruiz',
+          `${Math.round(Number(row.porcentaje_final || 0))}%`,
+          Number(row.puntos_restados || 0) > 0 ? `-${Number(row.puntos_restados)} ptos` : "0 ptos"
+        ]);
+      });
+    } catch (apiError) {
+      console.warn('API no disponible, usando localStorage:', apiError);
+      const historialLocal = JSON.parse(localStorage.getItem('auditorias_5S') || '[]');
+      historialLocal.sort((a, b) => (a.id_auditoria || a.id) - (b.id_auditoria || b.id));
+      historialLocal.forEach((auditoria) => {
+        registrosData.push([
+          auditoria.id_auditoria || auditoria.id || "SINID",
+          auditoria.fecha || '',
+          auditoria.area || 'No especificada',
+          auditoria.representante || 'No especificado',
+          auditoria.auditor || 'Alex Ruiz',
+          auditoria.score || `${Math.round(auditoria.scoreNum || 0)}%`,
+          auditoria.puntosRestados || '0 ptos'
+        ]);
+      });
     }
-  };
+
+    const wsRegistros = XLSX.utils.aoa_to_sheet(registrosData);
+    wsRegistros['!cols'] = [{ wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, wsRegistros, "registros");
+
+    const auditoriaActualData = [
+      ["auditoria_id", "fecha", "area", "puntaje_final"],
+      [idString, fecha, area, `${Math.round(porcentajeReal)}%`]
+    ];
+    const wsActual = XLSX.utils.aoa_to_sheet(auditoriaActualData);
+    wsActual['!cols'] = [{ wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, wsActual, "auditoria_actual");
+
+    XLSX.writeFile(wb, `Auditoria_5S_${idString}.xlsx`);
+    setMostrarModalExportar(false);
+  } catch (error) {
+    console.error("❌ Error al exportar Excel:", error);
+    alert("Error al exportar Excel. Intenta de nuevo.");
+  }
+};
+
 
   const finalizarProceso = () => {
     alert("¡Proceso finalizado con éxito! Los datos han sido guardados.");
