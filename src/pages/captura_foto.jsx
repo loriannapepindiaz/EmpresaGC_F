@@ -98,7 +98,7 @@ const CapturaFoto = () => {
             <div className="text-sm text-blue-900">
               <p className="font-bold mb-1 text-xs">Instrucción:</p>
               <p className="leading-relaxed opacity-90 text-xs">
-                Tome una foto clara del área completa. Esta imagen se usará en el historial y en el reporte PDF final.
+                Tome una foto clara del área completa. Esta imagen se usará en el reporte PDF final.
               </p>
             </div>
           </div>
