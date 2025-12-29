@@ -3,11 +3,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 const Resultados = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const API_URL = import.meta.env.VITE_API_URL;
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [puntuacionAnimada, setPuntuacionAnimada] = useState(0);
+  const [mostrarModalExportar, setMostrarModalExportar] = useState(false);
 
   if (!location.state) {
     return (
@@ -29,7 +35,7 @@ const Resultados = () => {
 
   const tieneDatos = !!location.state;
   const porcentajeReal = location.state?.porcentaje ?? 0;
-  const detallesReal = location.state?.detalles ?? {}; // ← Aquí llegan los puntajes reales desde Evaluacion
+  const detallesReal = location.state?.detalles ?? {};
   const hallazgosReal = location.state?.hallazgos ?? [];
   const fotoArea = location.state?.fotoArea || null;
   const idAuditoria = location.state?.id || location.state?.id_auditoria;
@@ -38,15 +44,57 @@ const Resultados = () => {
   const auditor = location.state?.auditor || "Alex Ruiz";
   const fecha = location.state?.fecha || new Date().toLocaleDateString('es-ES');
 
-  const [puntuacionAnimada, setPuntuacionAnimada] = useState(0);
-  const [mostrarModalExportar, setMostrarModalExportar] = useState(false);
-
   useEffect(() => {
     const timer = setTimeout(() => {
+      setIsLoading(false);
       setPuntuacionAnimada(porcentajeReal);
-    }, 500);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [porcentajeReal]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-full bg-[#f6f8f7] flex items-center justify-center p-4 font-sans">
+        <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&display=swap" rel="stylesheet" />
+        <div className="relative w-full max-w-[420px] h-[90vh] flex flex-col bg-white shadow-xl rounded-[2.5rem] overflow-hidden border border-gray-100">
+          <header className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white sticky top-0 z-10">
+            <Skeleton circle height={40} width={40} />
+            <Skeleton height={24} width={120} />
+            <div className="w-10" />
+          </header>
+
+          <main className="flex-1 overflow-y-auto pb-32 bg-white custom-scroll px-6">
+            <div className="flex flex-col items-center pt-8 pb-6">
+              <Skeleton height={36} width="60%" />
+              <div className="relative size-48 flex items-center justify-center mb-2 mt-8">
+                <Skeleton circle height={192} width={192} />
+              </div>
+              <Skeleton height={16} width="40%" />
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-50">
+              <div className="flex items-center justify-between mb-4">
+                <Skeleton height={24} width="80px" />
+                <Skeleton height={24} width="60px" />
+              </div>
+              <Skeleton height={80} count={2} />
+            </div>
+
+            <div className="pb-16 border-t border-gray-50">
+              <Skeleton height={24} width="120px" style={{ marginBottom: '24px', marginTop: '24px' }} />
+              <Skeleton height={72} count={5} />
+            </div>
+          </main>
+
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-12">
+            <Skeleton circle height={56} width={56} />
+            <Skeleton circle height={56} width={56} />
+            <Skeleton circle height={56} width={56} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const dashArray = 283;
   const dashOffset = dashArray - (dashArray * puntuacionAnimada) / 100;
@@ -86,9 +134,9 @@ const Resultados = () => {
 
     const tableData = etapas.map(etapa => {
       const info = detallesReal[etapa.id] || {};
-      const scoreRaw = info.score; // ← Puntaje real (puede ser null, 0, 1...5)
+      const scoreRaw = info.score;
       const score = scoreRaw != null ? Math.round(Number(scoreRaw)) : null;
-      const textoPuntaje = score != null ? `${score}/5` : 'N/D'; // N/D si no hay dato
+      const textoPuntaje = score != null ? `${score}/5` : 'N/D';
       const comentario = info.comment || "Sin observaciones";
       return [etapa.n, textoPuntaje, comentario];
     });
@@ -201,7 +249,7 @@ const Resultados = () => {
 
       let registrosData = [["ID", "Fecha", "Área", "Representante", "Auditor", "Porcentaje", "Puntos Restados"]];
 
-     try {
+       try {
         const res = await fetch(`${API_URL}/api/auditorias-5s`);
         if (!res.ok) throw new Error('Error en API');
         const data = await res.json();
