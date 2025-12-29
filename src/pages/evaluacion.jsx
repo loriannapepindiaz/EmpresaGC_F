@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 const Evaluacion = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const API_URL = import.meta.env.VITE_API_URL;
+
+  // Estado para controlar la carga inicial
+  const [isLoading, setIsLoading] = useState(true);
 
   // ID creado en pantalla2 (o fallback a id)
   const id = location.state?.id_auditoria || location.state?.id;
@@ -20,6 +25,12 @@ const Evaluacion = () => {
     4: { score: null, comment: '' },
     5: { score: null, comment: '' },
   });
+
+  useEffect(() => {
+    // Simulamos un breve tiempo de carga para mostrar el Skeleton
+    const timer = setTimeout(() => setIsLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const secciones = [
     {
@@ -88,14 +99,12 @@ const Evaluacion = () => {
     }
 
     try {
-      // ✅ Fragmento corregido usando backticks y la variable de entorno
       await axios.post(`${API_URL}/api/evaluacion/guardar`, {
         id_auditoria: id,
         detalles: data,
         porcentaje_final: porcentajeFinal,
       });
 
-      // Pasar a Resultados
       navigate('/resultados', {
         state: {
           ...location.state,
@@ -138,38 +147,56 @@ const Evaluacion = () => {
         {/* Contenido */}
         <main className="flex-1 overflow-y-auto px-6 py-4 space-y-8 bg-[#fcfdfc] custom-scrollbar no-scrollbar">
           <div className="mb-2">
-            <p className="text-[10px] font-bold text-[#25d466] uppercase tracking-widest">
-              {areaSeleccionada}
-            </p>
-            <p className="text-xs text-gray-500 font-medium tracking-tight">
-              Complete los 5 pasos de la metodología:
-            </p>
+            {isLoading ? (
+              <Skeleton width={120} height={15} style={{ marginBottom: '4px' }} />
+            ) : (
+              <p className="text-[10px] font-bold text-[#25d466] uppercase tracking-widest">
+                {areaSeleccionada}
+              </p>
+            )}
+            {isLoading ? (
+              <Skeleton width="80%" height={12} />
+            ) : (
+              <p className="text-xs text-gray-500 font-medium tracking-tight">
+                Complete los 5 pasos de la metodología:
+              </p>
+            )}
           </div>
 
           {secciones.map((s) => (
             <article key={s.id} className="transition-all">
               <div className="flex items-center gap-3 mb-3">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm transition-all duration-300 ${getColorByScore(
-                    data[s.id].score
-                  )}`}
-                >
-                  {s.id}
-                </div>
+                {isLoading ? (
+                  <Skeleton circle width={32} height={32} />
+                ) : (
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-sm transition-all duration-300 ${getColorByScore(
+                      data[s.id].score
+                    )}`}
+                  >
+                    {s.id}
+                  </div>
+                )}
                 <h3
                   className={`text-lg font-black transition-colors ${
-                    data[s.id].score !== null
+                    !isLoading && data[s.id].score !== null
                       ? 'text-gray-800'
                       : 'text-gray-300'
                   }`}
                 >
-                  {s.titulo}
+                  {isLoading ? <Skeleton width={150} /> : s.titulo}
                 </h3>
               </div>
 
-              <p className="text-gray-400 text-[13px] leading-snug mb-4">
-                {s.desc}
-              </p>
+              <div className="mb-4">
+                {isLoading ? (
+                  <Skeleton count={2} height={10} />
+                ) : (
+                  <p className="text-gray-400 text-[13px] leading-snug">
+                    {s.desc}
+                  </p>
+                )}
+              </div>
 
               {/* Botones de puntaje 0–5 */}
               <div className="flex justify-between gap-1 mb-4">
@@ -184,7 +211,9 @@ const Evaluacion = () => {
                       ? 'bg-[#7CB342] border-[#7CB342]'
                       : 'bg-[#25d466] border-[#25d466]';
 
-                  return (
+                  return isLoading ? (
+                    <Skeleton key={num} width={44} height={44} borderRadius={12} />
+                  ) : (
                     <button
                       key={num}
                       onClick={() => handleScore(s.id, num)}
@@ -202,15 +231,19 @@ const Evaluacion = () => {
               </div>
 
               {/* Comentario */}
-              <textarea
-                onChange={(e) =>
-                  handleComment(s.id, e.target.value)
-                }
-                value={data[s.id].comment}
-                className="w-full rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-[#25d466]/10 p-3 text-xs text-gray-600 italic transition-all shadow-inner outline-none"
-                placeholder="Añadir nota de hallazgo..."
-                rows="2"
-              />
+              {isLoading ? (
+                <Skeleton height={60} borderRadius={16} />
+              ) : (
+                <textarea
+                  onChange={(e) =>
+                    handleComment(s.id, e.target.value)
+                  }
+                  value={data[s.id].comment}
+                  className="w-full rounded-2xl bg-gray-50 border-none focus:ring-2 focus:ring-[#25d466]/10 p-3 text-xs text-gray-600 italic transition-all shadow-inner outline-none"
+                  placeholder="Añadir nota de hallazgo..."
+                  rows="2"
+                />
+              )}
             </article>
           ))}
 
@@ -219,21 +252,25 @@ const Evaluacion = () => {
 
         {/* Footer */}
         <div className="p-6 bg-white border-t border-gray-100">
-          <button
-            onClick={finalizarAuditoria}
-            disabled={!isComplete}
-            className={`w-full h-14 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg
-              ${
-                isComplete
-                  ? 'bg-[#25d466] text-white shadow-[#25d466]/20'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
-              }`}
-          >
-            <span>Finalizar Auditoría</span>
-            <span className="material-symbols-outlined text-[22px]">
-              arrow_forward
-            </span>
-          </button>
+          {isLoading ? (
+            <Skeleton height={56} borderRadius={16} />
+          ) : (
+            <button
+              onClick={finalizarAuditoria}
+              disabled={!isComplete}
+              className={`w-full h-14 rounded-2xl font-bold text-base transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg
+                ${
+                  isComplete
+                    ? 'bg-[#25d466] text-white shadow-[#25d466]/20'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'
+                }`}
+            >
+              <span>Finalizar Auditoría</span>
+              <span className="material-symbols-outlined text-[22px]">
+                arrow_forward
+              </span>
+            </button>
+          )}
         </div>
       </div>
     </div>
