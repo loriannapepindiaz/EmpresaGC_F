@@ -98,8 +98,14 @@ const Resultados = () => {
 
   const dashArray = 283;
   const dashOffset = dashArray - (dashArray * puntuacionAnimada) / 100;
+  const colorPorcentaje = obtenerColorPorcentaje(puntuacionAnimada);
 
-
+const obtenerColorPorcentaje = (score) => {
+  if (score < 40) return "text-red-500";
+  if (score < 70) return "text-orange-500";
+  if (score < 90) return "text-green-400";
+  return "text-green-600";
+};
 
   const puntosMaximos = 25;
   const puntosObtenidos = Object.values(detallesReal).reduce((sum, item) => sum + (Number(item?.score) || 0), 0);
