@@ -98,7 +98,7 @@ const Resultados = () => {
 
   const dashArray = 283;
   const dashOffset = dashArray - (dashArray * puntuacionAnimada) / 100;
-  const colorPorcentaje = obtenerColorPorcentaje(puntuacionAnimada);
+
 
 
   const puntosMaximos = 25;
@@ -123,12 +123,7 @@ const Resultados = () => {
     { id: 5, n: "Disciplina (Shitsuke)", i: "verified_user", c: "bg-emerald-50 text-emerald-600" }
   ];
 
-  const obtenerColorPorcentaje = (score) => {
-  if (score < 40) return "text-red-500";        // 🔴 Malo
-  if (score < 70) return "text-orange-500";     // 🟠 Más o menos
-  if (score < 90) return "text-green-400";      // 🟢 Bueno regular (verde apagado)
-  return "text-green-600";                     // 🟢 Excelente (verde fuerte)
-};
+ 
 
 
   const generarTabla = (doc, startY) => {
