@@ -98,6 +98,8 @@ const Resultados = () => {
 
   const dashArray = 283;
   const dashOffset = dashArray - (dashArray * puntuacionAnimada) / 100;
+  const colorPorcentaje = obtenerColorPorcentaje(puntuacionAnimada);
+
 
   const puntosMaximos = 25;
   const puntosObtenidos = Object.values(detallesReal).reduce((sum, item) => sum + (Number(item?.score) || 0), 0);
@@ -120,6 +122,14 @@ const Resultados = () => {
     { id: 4, n: "Estandarizar (Seiketsu)", i: "fact_check", c: "bg-purple-50 text-purple-600" },
     { id: 5, n: "Disciplina (Shitsuke)", i: "verified_user", c: "bg-emerald-50 text-emerald-600" }
   ];
+
+  const obtenerColorPorcentaje = (score) => {
+  if (score < 40) return "text-red-500";        // 🔴 Malo
+  if (score < 70) return "text-orange-500";     // 🟠 Más o menos
+  if (score < 90) return "text-green-400";      // 🟢 Bueno regular (verde apagado)
+  return "text-green-600";                     // 🟢 Excelente (verde fuerte)
+};
+
 
   const generarTabla = (doc, startY) => {
     doc.setFontSize(14);
